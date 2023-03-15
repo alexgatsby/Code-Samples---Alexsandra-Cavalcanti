@@ -1,0 +1,4 @@
+"0","pacman::p_install(pacotes, character.only = T)
+"
+"2","Error in if (x %in% c(""R"")) { : the condition has length > 1
+"

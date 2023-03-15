@@ -1,0 +1,144 @@
+---
+title: "Scaling"
+author: "Alexsandra A. Cavalcanti"
+date: "`r format(Sys.time(), '%d-%m-%Y')`"
+output: 
+  html_document:
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# packages
+
+if (require (xml2) == FALSE) {install.packages("xml2"); require (xml2)}
+if (require (httr) == FALSE) {install.packages("httr"); require (httr)}
+if (require (rvest) == FALSE) {install.packages("rvest"); require (rvest)}
+if (require (tesseract) == FALSE) {install.packages("tesseract"); require (tesseract)}
+if (require (stringi) == FALSE) {install.packages("stringi"); require (stringi)}
+if (require (pdftools) == FALSE) {install.packages("pdftools"); require (pdftools)}
+if (require (stringr) == FALSE) {install.packages("stringr"); require (stringr)}
+if (require (pdftools) == FALSE) {install.packages("pdftools"); require (pdftools)}
+if (require (scales) == FALSE) {install.packages("scales"); require (scales)}
+if (require (topicmodels) == FALSE) {install.packages("topicmodels"); require (topicmodels)}
+if (require (readtext) == FALSE) {install.packages("readtext"); require (readtext)}
+if (require (quanteda) == FALSE) {install.packages("quanteda"); require (quanteda)}
+if (require (quanteda.textplots) == FALSE) {install.packages("quanteda.textplots"); require (quanteda.textplots)}
+if (require (quanteda.textstats) == FALSE) {install.packages("quanteda.textstats"); require (quanteda.textstats)}
+if (require (quanteda.textmodels) == FALSE) {install.packages("quanteda.textmodels"); require (quanteda.textmodels)}
+if (require (tidytext) == FALSE) {install.packages("tidytext"); require (tidytext)}
+if (require (tidyverse) == FALSE) {install.packages("tidyverse"); require (tidyverse)}
+if (require (here) == FALSE) {install.packages("here"); require (here)}
+if (require (ggplot2) == FALSE) {install.packages("ggplot2"); require (ggplot2)}
+if (require (igraph) == FALSE) {install.packages("igraph"); require (igraph)}
+if (require (rio) == FALSE) {install.packages("rio"); require (rio)}
+if (require (stringr) == FALSE) {install.packages("stringr"); require (stringr)}
+
+```
+
+
+# Goal:
+
+> I am using the *Wordfish* model to estimate the ideal points of each of the parties whose deputies gave speeches on the opening day of the impeachment process of former President Dilma Rousseff.
+
+## Party Positions
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# carregando base de dados
+
+dilma <- import (here ("data", "impeachment-dilma-dados-filter.rda"))
+
+# data wrangling
+
+dilma.dfm  <- dilma %>%
+  corpus(docid_field = "doc_id", text_field = "text", docvars = "partido") %>%   
+  tokens(remove_punct = TRUE) %>%
+  tokens_tolower() %>%
+  tokens_remove(stopwords(source = "stopwords-iso", language = "pt"), min_nchar = 2) %>%
+  tokens_wordstem(language = "pt") %>%
+  dfm() %>%
+  dfm_select(pattern = c("sr", "total", "deput", "vot", 
+                         "president", "bet", "mansur", 
+                         "palm","v.ex", "sra", "tem", "sao"),
+             selection = "remove") %>%
+  dfm_trim(min_docfreq = 0.01, docfreq_type = "prop") %>%
+  dfm_group(groups = partido)
+
+# model
+
+dilma.wf <- textmodel_wordfish(dilma.dfm, dir = c(6,5))
+
+# plot
+
+textplot_scale1d(dilma.wf)
+
+
+```
+
+
+## Word scores
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# plot
+
+textplot_scale1d(dilma.wf, margin = "features")
+
+```
+
+
+# Goal:
+
+> I am using the *Wordfish* model to estimate the sweet spots of each candidate for the presidency of Brazil in 2022 according to their speeches.
+
+## Positions
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# database
+
+pres <- import (here ("data", "disc_pres_prod.RData"))
+
+# data wrangling
+
+ids <- seq (1, dim(pres)[1], by=1)
+pres <- bind_cols(ids, pres)
+pres$doc_id <- pres$...1
+pres <- pres %>% select (authors, text, doc_id) %>% drop_na()
+
+pres.dfm  <- pres %>%
+  corpus(x = pres$text, docnames = pres$doc_id, docvars = pres$authors) %>%   
+  tokens(remove_punct = TRUE) %>%
+  tokens_tolower() %>%
+  tokens_remove(stopwords(source = "stopwords-iso", language = "pt"), min_nchar = 2) %>%
+  tokens_wordstem(language = "pt") %>%
+  dfm() %>%
+  dfm_select(pattern = c("sr", "candidat", "president", "palm"),
+             selection = "remove") %>%
+  dfm_trim(min_docfreq = 0.01, docfreq_type = "prop") %>%
+  dfm_group(groups = docvars)
+
+# model
+
+pres.wf <- textmodel_wordfish(pres.dfm, dir = c(4,4))
+
+# plot
+
+textplot_scale1d(pres.wf)
+
+```
+
+## Word Scores
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# plot extra
+
+textplot_scale1d(pres.wf, margin = "features")
+
+```
