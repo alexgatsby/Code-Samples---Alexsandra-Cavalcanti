@@ -1,0 +1,206 @@
+---
+title: "ds4ps_extra_assignment_01"
+author: "Alexsandra Cavalcanti"
+date: "`r format(Sys.time(), '%d-%m-%Y')`"
+output: 
+  html_document:
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(OutDec = ",")
+knitr::knit_hooks$set(inline = function(x) { 
+  if(!is.numeric(x)){     
+    x   
+    }else{    
+      prettyNum(round(x,2), big.mark=".")    
+      } 
+  }
+  )
+
+```
+
+# Assignment {-}
+
+```{r packages, warning=FALSE, message=FALSE}
+
+if (require (tidyverse) == FALSE) {install.packages("tidyverse") ; require (tidyverse)}
+
+if (require (here) == FALSE) {install.packages("here") ; require (here)}
+
+if (require (readxl) == FALSE) {install.packages("readxl") ; require (readxl)}
+
+if (require (devtools) == FALSE) {install.packages("devtools") ; require (devtools)}
+
+if (require (sf) == FALSE) {install.packages("sf") ; require (sf)}
+
+if (require (geobr) == FALSE) {devtools::install_github("ipeaGIT/geobr", subdir = "r-package") ; require (geobr)}
+
+if (require (ggplot2) == FALSE) {install.packages("ggplot2") ; require (ggplot2)}
+
+if (require (rgdal) == FALSE) {install.packages("rgdal") ; require (rgdal)}
+
+theme_set(theme_bw()) # para fundo branco em todos os graficos
+```
+
+
+# Questão
+
+Em 2020, o Brasil e o mundo foram surpreendidos pela onda pandêmica do *Covid-19*. Agora, mais de um ano depois, temos uma grande disponibilidade de dados e podemos observar como cada estado do país está em relação aos números de morte e de casos confirmados. [Brasil em Dados Libertos](https://brasil.io/home/) disponibiliza tais dados.
+
+>- Sua tarefa é construir um mapa por estado através da base de dados `covid19br.xlsx` contida na pasta `data` deste projeto, com o número de **casos confirmados**. Você pode construir o mapa pela *porcentagem* ou pelo *número total* por estados. Além disso, você deve **excluir** os casos sobre o Distrito Federal.
+
+**Não se esqueça de carregar os pacotes necessários.**
+
+Utilize o *code chunk* abaixo para desenvolver sua resposta.
+
+```{r results='hide', fig.keep='all', message = FALSE}
+
+# Primeiro, é preciso carregar e tratar a base de dados.
+
+db <- read_xlsx(here("data", "covid19br.xlsx"))
+covid_states_nodf <- db %>%
+  filter (state != "DF") %>%
+  group_by (state) %>%
+  summarise (confirmed_covid_number = sum (confirmed),
+             covid_deaths_number = sum (deaths)) %>%
+  mutate (confirmed_covid_percentage = 
+            (confirmed_covid_number / sum (confirmed_covid_number)) * 100,
+          covid_deaths_percentage = (covid_deaths_number / sum (covid_deaths_number)) * 100)
+
+# Segundo, é preciso carregar e tratar a base de dados acerca dos estados brasileiros.
+
+brmap_nodf <- read_state (year=2020) %>% 
+  rename ("state" = abbrev_state) %>% 
+  filter (state != "DF")
+
+# Terceiro, é preciso juntar as bases de dados.
+
+data_nodf <- brmap_nodf %>% full_join (covid_states_nodf, by = "state")
+
+```
+
+## Pela %
+
+```{r results='hide', fig.keep='all', message = FALSE}
+
+ggplot (data_nodf) +
+  geom_sf (aes (geometry = geom, fill = confirmed_covid_percentage), color = "black") +
+  coord_sf () +
+  scale_fill_gradient(low="grey", high="darkred") +
+  theme(legend.position = "right", legend.title.align=0.5) +
+  labs (title = "Porcentagem de Casos Confirmados por Estado",
+        fill = "Porcentagem (%)")
+
+```
+
+## Pelo N total
+
+```{r results='hide', fig.keep='all', message = FALSE}
+
+ggplot (data_nodf) +
+  geom_sf (aes (geometry = geom, fill = confirmed_covid_number), color = "black") +
+  coord_sf () +
+  scale_fill_gradient(low="grey", high="darkred") +
+  theme(legend.position = "right", legend.title.align=0.5) +
+  labs (title = "Número Total de Casos Confirmados por Estado",
+        fill = "Quantidade de Casos")
+```
+
+De acordo com os dados, qual o estado com o maior número ou porcentagem de casos confirmados por Covid-19? Apresente sua resposta com o código embutido em seu texto.
+
+**Resposta:**
+
+*       O estado com maior número e porcentagem de casos confirmados de Covid-19 é `r covid_states_nodf [which.max (covid_states_nodf$confirmed_covid_number), 1]`.
+
+# Questão
+
+Ainda sobre os dados de Covid-19, `covid19br.xlsx`, responda as seguintes perguntas:
+
+>- Qual a **média** de casos confirmados e de mortes por município? Apresente sua resposta com o código embutido em seu texto.
+
+
+```{r message=FALSE, warning=FALSE, echo=TRUE}
+
+covid_per_mun <- db %>% 
+  filter (place_type == "city",
+          city != "Importados/Indefinidos") %>%
+  select (city, confirmed, deaths) %>%
+  drop_na ()
+
+```
+
+**Resposta:** 
+
+*       A média de casos confirmados por município identificado é `r mean (covid_per_mun$confirmed)`.
+
+*       A média de mortes por município identificado é `r mean (covid_per_mun$deaths)`.
+
+
+>- Qual o valor mínimo de casos confirmados? Apresente sua resposta com o código embutido em seu texto.
+
+**Resposta:** 
+
+*       O mínimo de casos confirmados em um município identificado é de `r covid_per_mun [which.min(covid_per_mun$confirmed), 2]`, referente à cidade de `r covid_per_mun [which.min(covid_per_mun$confirmed), 1]`.
+
+
+>- Qual o valor máximo de casos confirmados? Apresente sua resposta com o código embutido em seu texto.
+
+**Resposta:** 
+
+*       O máximo de casos confirmados em um município identificado é de `r covid_per_mun [which.max(covid_per_mun$confirmed), 2]`, referente à cidade de `r covid_per_mun [which.max(covid_per_mun$confirmed), 1]`.
+
+
+# Questão
+
+Apresente visualmente o resultado *percentual* de casos confirmados e de mortes por Covid-19 por estado. Se conseguir, faça numa única visualização:
+
+Utilize o *code chunk* abaixo para desenvolver sua resposta. Se necessário, crie outros *code chunks*.
+
+- Percentual de casos confirmados por estado:
+
+```{r results='hide', fig.keep='all', message = FALSE}
+
+# Primeiro, é preciso contar com uma nova base de dados para os estados que não exclua o Distrito Federal.
+
+data_states <- db %>%
+  group_by (state) %>%
+  summarise (confirmed_covid_number = sum (confirmed),
+             covid_deaths_number = sum (deaths)) %>%
+  mutate (confirmed_covid_percentage = 
+            (confirmed_covid_number / sum (confirmed_covid_number)) * 100,
+          covid_deaths_percentage = (covid_deaths_number / sum (covid_deaths_number)) * 100)
+
+# Em seguida, torna-se possível fazer a representação visual solicitada.
+
+data_states %>%
+  ggplot () +
+  geom_col (mapping = aes (x  = reorder (state, +confirmed_covid_percentage), 
+                           y = confirmed_covid_percentage), 
+            fill = "darkred") +
+  coord_flip () +
+  labs (title = "Porcentagem de Casos Confirmados  de Covid-19 por Estado",
+        y = "Porcentagem (%)",
+        x = "Estado (sigla)")
+
+```
+
+- Percentual de mortes por estado
+
+```{r message=FALSE, warning=FALSE, echo=TRUE}
+
+data_states %>%
+  ggplot () +
+  geom_col (mapping = aes (x  = reorder (state, +covid_deaths_percentage), 
+                           y = covid_deaths_percentage), 
+            fill = "darkred") +
+  coord_flip () +
+  labs (title = "Porcentagem de Mortes por Covid-19 por Estado",
+        y = "Porcentagem (%)",
+        x = "Estado (sigla)")
+
+```
+
+
+
